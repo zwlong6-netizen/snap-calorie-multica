@@ -1,0 +1,18 @@
+version: '3.8'
+
+services:
+  ai-calorie-tracker:
+    build: .
+    container_name: ai-calorie-tracker-mvp
+    ports:
+      - "${PORT:-3000}:3000"
+    environment:
+      - PORT=3000
+      - NODE_ENV=production
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 5s

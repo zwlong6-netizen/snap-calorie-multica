@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>AI卡路里拍照识别与摄入管理</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="app" class="mobile-container">
+    <!-- 顶部状态与日期切换栏 -->
+    <header class="app-header">
+      <div class="header-top">
+        <span class="user-profile-badge">👤 我的画像</span>
+        <h1 class="header-title" id="current-date-title">2026年11月22日</h1>
+        <button class="icon-btn" id="btn-reset-data" title="重置体验数据">🔄</button>
+      </div>
+      <div class="date-navigator">
+        <button class="nav-btn" id="btn-prev-day">&lt; 上一日</button>
+        <span class="nav-today-tag" id="label-today">【 今天 】</span>
+        <button class="nav-btn" id="btn-next-day">下一日 &gt;</button>
+      </div>
+    </header>
+
+    <!-- 主滑动区域 -->
+    <main class="main-content">
+      <!-- 1. 每日能量收支差额卡片 (Daily Energy Balance) -->
+      <section class="card energy-balance-card" id="energy-card">
+        <div class="balance-header">
+          <span class="section-badge">🎯 今日能量收支</span>
+          <span class="target-calorie-text" id="target-calories-text">目标 2,000 kcal</span>
+        </div>
+
+        <div class="remaining-highlight">
+          <span class="remaining-label" id="remaining-label">剩余还可吃</span>
+          <div class="remaining-number-wrap">
+            <span class="remaining-value tabular-nums" id="remaining-val">650</span>
+            <span class="remaining-unit">kcal</span>
+          </div>
+        </div>
+
+        <div class="budget-bar-wrap">
+          <div class="budget-meta">
+            <span id="consumed-summary-text">已摄入: 1,350 kcal</span>
+            <span id="consumed-percentage-text">67.5%</span>
+          </div>
+          <div class="progress-track">
+            <div class="progress-fill primary-fill" id="calorie-progress-bar" style="width: 67.5%;"></div>
+          </div>
+        </div>
+
+        <div class="divider"></div>
+
+        <!-- 三大宏量营养素达标指示器 (Macronutrients) -->
+        <div class="macros-section">
+          <div class="macro-header-title">三大宏量营养素达成进度</div>
+          <div class="macro-grid">
+            <!-- 碳水 -->
+            <div class="macro-item">
+              <div class="macro-info">
+                <span class="macro-tag carb-tag">碳水化合物</span>
+                <span class="macro-val tabular-nums" id="macro-carb-val">180g / 250g</span>
+              </div>
+              <div class="progress-track macro-track">
+                <div class="progress-fill carb-fill" id="macro-carb-bar" style="width: 72%;"></div>
+              </div>
+            </div>
+
+            <!-- 蛋白质 -->
+            <div class="macro-item">
+              <div class="macro-info">
+                <span class="macro-tag protein-tag">蛋白质</span>
+                <span class="macro-val tabular-nums" id="macro-protein-val">75g / 100g</span>
+              </div>
+              <div class="progress-track macro-track">
+                <div class="progress-fill protein-fill" id="macro-protein-bar" style="width: 75%;"></div>
+              </div>
+            </div>
+
+            <!-- 脂肪 -->
+            <div class="macro-item">
+              <div class="macro-info">
+                <span class="macro-tag fat-tag">脂肪</span>
+                <span class="macro-val tabular-nums" id="macro-fat-val">38g / 55g</span>
+              </div>
+              <div class="progress-track macro-track">
+                <div class="progress-fill fat-fill" id="macro-fat-bar" style="width: 69%;"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 2. 今日餐次明细时间轴 (Meals Breakdown) -->
+      <section class="card meals-timeline-card">
+        <div class="card-title-row">
+          <h2 class="card-title">🕒 餐次摄入明细时间轴</h2>
+          <span class="sub-tip">点击展开/编辑单项</span>
+        </div>
+
+        <div class="meals-list" id="meals-container">
+          <!-- 动态渲染 4 餐 (早餐/午餐/晚餐/加餐) -->
+        </div>
+      </section>
+    </main>
+
+    <!-- 底部悬浮操作按钮 (FAB) -->
+    <div class="fab-container">
+      <button class="fab-btn" id="btn-open-camera">
+        <span class="fab-icon">📷</span>
+        <span class="fab-text">拍照识别食物</span>
+      </button>
+    </div>
+
+    <!-- 拍照/取景全屏扫描弹窗 (Modal) -->
+    <div class="modal full-modal hidden" id="camera-modal">
+      <div class="camera-screen">
+        <div class="camera-header">
+          <button class="icon-circle-btn" id="btn-close-camera">✕</button>
+          <div class="camera-badge">⚡ 智能识别就绪</div>
+          <button class="icon-circle-btn" id="btn-toggle-flash">🔦</button>
+        </div>
+
+        <div class="viewfinder-box">
+          <div class="corner corner-tl"></div>
+          <div class="corner corner-tr"></div>
+          <div class="corner corner-bl"></div>
+          <div class="corner corner-br"></div>
+          
+          <!-- 雷达波扫描动画线 -->
+          <div class="laser-scanner" id="laser-scanner"></div>
+
+          <!-- 模拟图像显示 -->
+          <img id="camera-preview-img" class="camera-preview-img hidden" src="" alt="取景预览" />
+
+          <div class="viewfinder-placeholder" id="camera-placeholder">
+            <span class="camera-center-icon">🍽️</span>
+            <p class="camera-tip-title">将餐盘食物完整置于框内</p>
+            <p class="camera-tip-sub">支持西冷牛排、沙拉、吐司、米饭等</p>
+          </div>
+        </div>
+
+        <div class="camera-controls">
+          <label class="album-upload-btn" for="file-input">
+            <span class="control-icon">🖼️</span>
+            <span>相册上传</span>
+          </label>
+          <input type="file" id="file-input" accept="image/*" class="hidden" />
+
+          <!-- 快门按钮 -->
+          <button class="shutter-btn" id="btn-shutter" title="快门识别">
+            <div class="shutter-inner"></div>
+          </button>
+
+          <!-- 快速示例体验切换 -->
+          <button class="demo-switch-btn" id="btn-demo-sample">
+            <span class="control-icon">✨</span>
+            <span>体验样张</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 识别结果确认/微调半屏浮层 (Bottom Sheet) -->
+    <div class="bottom-sheet-backdrop hidden" id="result-sheet-backdrop">
+      <div class="bottom-sheet" id="result-sheet">
+        <div class="sheet-drag-handle"></div>
+
+        <div class="sheet-header">
+          <div class="sheet-title-group">
+            <span class="confidence-tag" id="confidence-tag">AI 识别成功 96%</span>
+            <h3 class="sheet-food-name" id="sheet-food-name">香煎西冷牛排</h3>
+          </div>
+          <button class="sheet-close-btn" id="btn-close-sheet">✕</button>
+        </div>
+
+        <!-- 食物卡片基本信息 -->
+        <div class="sheet-food-card">
+          <div class="sheet-thumb" id="sheet-food-emoji">🥩</div>
+          <div class="sheet-details">
+            <div class="sheet-calorie-large">
+              <span class="large-num tabular-nums" id="sheet-calorie-num">488</span>
+              <span class="large-unit">kcal</span>
+            </div>
+            <div class="sheet-weight-text" id="sheet-weight-text">当前份量: 200 克</div>
+          </div>
+        </div>
+
+        <!-- 餐次归属选择 -->
+        <div class="meal-type-selector">
+          <span class="selector-label">分配至餐次：</span>
+          <div class="meal-pill-group">
+            <button class="meal-pill" data-meal="breakfast">早餐</button>
+            <button class="meal-pill active" data-meal="lunch">午餐</button>
+            <button class="meal-pill" data-meal="dinner">晚餐</button>
+            <button class="meal-pill" data-meal="snack">加餐</button>
+          </div>
+        </div>
+
+        <!-- 三大营养素实时分解 -->
+        <div class="sheet-macros-box">
+          <div class="sheet-macro-row">
+            <span class="pill-dot blue-dot"></span>
+            <span class="sheet-macro-label">蛋白质:</span>
+            <strong class="tabular-nums" id="sheet-protein-val">46.2g</strong>
+          </div>
+          <div class="sheet-macro-row">
+            <span class="pill-dot amber-dot"></span>
+            <span class="sheet-macro-label">脂肪:</span>
+            <strong class="tabular-nums" id="sheet-fat-val">32.0g</strong>
+          </div>
+          <div class="sheet-macro-row">
+            <span class="pill-dot pink-dot"></span>
+            <span class="sheet-macro-label">碳水:</span>
+            <strong class="tabular-nums" id="sheet-carbs-val">1.2g</strong>
+          </div>
+        </div>
+
+        <!-- 份量快速微调滑动条 (Portion Slider) -->
+        <div class="portion-adjustment-section">
+          <div class="portion-header">
+            <span class="portion-title">份量快速微调</span>
+            <span class="portion-current-weight tabular-nums" id="portion-weight-label">200g (1.0份)</span>
+          </div>
+
+          <div class="slider-row">
+            <button class="step-btn" id="btn-step-minus">-</button>
+            <input type="range" id="portion-range" min="20" max="600" step="10" value="200" class="portion-slider" />
+            <button class="step-btn" id="btn-step-plus">+</button>
+          </div>
+
+          <!-- 快速倍率档位吸附 -->
+          <div class="portion-presets">
+            <button class="preset-pill" data-factor="0.5">0.5 份</button>
+            <button class="preset-pill active" data-factor="1.0">1.0 份 (标量)</button>
+            <button class="preset-pill" data-factor="1.5">1.5 份</button>
+            <button class="preset-pill" data-factor="2.0">2.0 份</button>
+          </div>
+        </div>
+
+        <!-- 误差校正辅助通道 -->
+        <div class="sheet-secondary-actions">
+          <button class="btn-text-action" id="btn-open-search-modal">🔍 识别偏差？更正食物项</button>
+          <button class="btn-text-action" id="btn-manual-exact-weight">✏️ 精确输入克重</button>
+        </div>
+
+        <!-- 确认入库主操作按钮 -->
+        <div class="sheet-footer">
+          <button class="btn-primary-block" id="btn-confirm-record">
+            ✅ 确认打卡入库 (+<span id="btn-confirm-cal">488</span> kcal)
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 食物库搜索与更正模态弹窗 -->
+    <div class="modal center-modal hidden" id="search-modal">
+      <div class="modal-card">
+        <div class="modal-header">
+          <h3 class="modal-title">更正食物候选库</h3>
+          <button class="icon-btn" id="btn-close-search">✕</button>
+        </div>
+
+        <div class="search-input-wrap">
+          <span class="search-icon">🔍</span>
+          <input type="text" id="food-search-input" placeholder="输入食物名称，如：牛排、沙拉、米饭..." />
+        </div>
+
+        <div class="hot-tags">
+          <span class="hot-label">常见推荐:</span>
+          <span class="hot-chip" data-search="牛排">牛排</span>
+          <span class="hot-chip" data-search="沙拉">沙拉</span>
+          <span class="hot-chip" data-search="鸡蛋">鸡蛋</span>
+          <span class="hot-chip" data-search="米饭">糙米饭</span>
+          <span class="hot-chip" data-search="三文鱼">三文鱼</span>
+        </div>
+
+        <div class="search-result-list" id="search-results-box">
+          <!-- 动态渲染搜索结果 -->
+        </div>
+      </div>
+    </div>
+
+    <!-- 精确克重输入弹窗 -->
+    <div class="modal center-modal hidden" id="weight-input-modal">
+      <div class="modal-card">
+        <div class="modal-header">
+          <h3 class="modal-title">手动校准克重</h3>
+          <button class="icon-btn" id="btn-close-weight-modal">✕</button>
+        </div>
+        <div class="weight-input-body">
+          <label for="exact-weight-input">请输入食物净重 (克/g):</label>
+          <input type="number" id="exact-weight-input" min="5" max="2000" value="200" class="large-number-input" />
+        </div>
+        <div class="modal-footer">
+          <button class="btn-primary-block" id="btn-save-exact-weight">应用并更新卡路里</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 弱网 / Toast 提示 -->
+    <div class="toast hidden" id="toast"></div>
+  </div>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>
