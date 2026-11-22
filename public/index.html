@@ -2,8 +2,22 @@
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>AI卡路里拍照识别与摄入管理</title>
+  
+  <!-- PWA 与移动端专属 Meta 标签 -->
+  <meta name="theme-color" content="#10B981">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="AI卡路里">
+  <meta name="format-detection" content="telephone=no">
+
+  <!-- 网页图标与 Apple Touch Icon -->
+  <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon.png">
+  <link rel="manifest" href="manifest.json">
+
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -147,10 +161,11 @@
           </label>
           <input type="file" id="file-input" accept="image/*" class="hidden" />
 
-          <!-- 快门按钮 -->
-          <button class="shutter-btn" id="btn-shutter" title="快门识别">
+          <!-- 快门/相机直调按钮（优先唤起手机后置摄像头） -->
+          <label class="shutter-btn" for="camera-capture-input" id="btn-shutter-label" title="快门拍照">
             <div class="shutter-inner"></div>
-          </button>
+          </label>
+          <input type="file" id="camera-capture-input" accept="image/*" capture="environment" class="hidden" />
 
           <!-- 快速示例体验切换 -->
           <button class="demo-switch-btn" id="btn-demo-sample">
@@ -300,6 +315,48 @@
 
     <!-- 弱网 / Toast 提示 -->
     <div class="toast hidden" id="toast"></div>
+
+    <!-- PWA 添加到主屏幕引导浮层 (A2HS Guide Banner / Modal) -->
+    <div class="pwa-install-banner hidden" id="pwa-install-banner">
+      <div class="pwa-banner-content">
+        <img src="icons/icon-192.png" alt="App Logo" class="pwa-app-logo" />
+        <div class="pwa-text-group">
+          <strong class="pwa-app-title">添加“AI卡路里”到主屏幕</strong>
+          <p class="pwa-app-desc" id="pwa-app-desc">畅享全屏沉浸体验与离线极速识别</p>
+        </div>
+      </div>
+      <div class="pwa-banner-actions">
+        <button class="pwa-install-btn" id="btn-pwa-install">立即添加</button>
+        <button class="pwa-close-btn" id="btn-pwa-dismiss">✕</button>
+      </div>
+    </div>
+
+    <!-- iOS Safari 添加主屏幕引导弹窗 -->
+    <div class="modal center-modal hidden" id="ios-guide-modal">
+      <div class="modal-card ios-guide-card">
+        <div class="modal-header">
+          <h3 class="modal-title">添加到 iPhone 主屏幕</h3>
+          <button class="icon-btn" id="btn-close-ios-guide">✕</button>
+        </div>
+        <div class="ios-guide-body">
+          <div class="ios-step">
+            <span class="step-num">1</span>
+            <p>点击浏览器底部工具栏的 <strong>分享</strong> 按钮 <span class="ios-share-icon">⎋</span></p>
+          </div>
+          <div class="ios-step">
+            <span class="step-num">2</span>
+            <p>在弹出的菜单中下滑，选择 <strong>“添加到主屏幕”</strong> 选项 <span>➕</span></p>
+          </div>
+          <div class="ios-step">
+            <span class="step-num">3</span>
+            <p>点击右上角 <strong>“添加”</strong>，即可在桌面以全屏 App 方式启动！</p>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn-primary-block" id="btn-understood-ios">我知道了</button>
+        </div>
+      </div>
+    </div>
   </div>
 
   <script type="module" src="app.js"></script>

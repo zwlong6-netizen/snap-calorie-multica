@@ -1,0 +1,46 @@
+{
+  "name": "AI卡路里拍照识别与摄入管理",
+  "short_name": "AI卡路里",
+  "description": "食物拍照看卡路里、每日热量与营养摄入计算的智能健康助手",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0F172A",
+  "theme_color": "#10B981",
+  "categories": ["health", "fitness", "lifestyle", "utilities"],
+  "icons": [
+    {
+      "src": "icons/favicon-32.png",
+      "sizes": "32x32",
+      "type": "image/png"
+    },
+    {
+      "src": "icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-512-maskable.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "快速拍照记账",
+      "short_name": "拍照记账",
+      "description": "打开摄像头记录当前餐次食物",
+      "url": "./index.html?action=camera",
+      "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }]
+    }
+  ]
+}

@@ -35,11 +35,22 @@ const btnOpenCamera = document.getElementById('btn-open-camera');
 const cameraModal = document.getElementById('camera-modal');
 const btnCloseCamera = document.getElementById('btn-close-camera');
 const fileInput = document.getElementById('file-input');
+const cameraCaptureInput = document.getElementById('camera-capture-input');
 const btnShutter = document.getElementById('btn-shutter');
 const btnDemoSample = document.getElementById('btn-demo-sample');
 const cameraPreviewImg = document.getElementById('camera-preview-img');
 const cameraPlaceholder = document.getElementById('camera-placeholder');
 const laserScanner = document.getElementById('laser-scanner');
+
+// PWA 安装引导浮层与弹窗元素
+const pwaInstallBanner = document.getElementById('pwa-install-banner');
+const btnPwaInstall = document.getElementById('btn-pwa-install');
+const btnPwaDismiss = document.getElementById('btn-pwa-dismiss');
+const iosGuideModal = document.getElementById('ios-guide-modal');
+const btnCloseIosGuide = document.getElementById('btn-close-ios-guide');
+const btnUnderstoodIos = document.getElementById('btn-understood-ios');
+
+let deferredPrompt = null;
 
 // 半屏结果卡片 (Bottom Sheet)
 const resultSheetBackdrop = document.getElementById('result-sheet-backdrop');
@@ -430,8 +441,7 @@ btnDemoSample.addEventListener('click', () => {
   }, 400);
 });
 
-fileInput.addEventListener('change', (e) => {
-  const file = e.target.files[0];
+function handleImageFileSelected(file) {
   if (file) {
     const reader = new FileReader();
     reader.onload = () => {
@@ -442,7 +452,17 @@ fileInput.addEventListener('change', (e) => {
     };
     reader.readAsDataURL(file);
   }
+}
+
+fileInput.addEventListener('change', (e) => {
+  handleImageFileSelected(e.target.files[0]);
 });
+
+if (cameraCaptureInput) {
+  cameraCaptureInput.addEventListener('change', (e) => {
+    handleImageFileSelected(e.target.files[0]);
+  });
+}
 
 btnCloseSheet.addEventListener('click', () => {
   resultSheetBackdrop.classList.add('hidden');
@@ -552,6 +572,106 @@ function shiftDate(days) {
 btnResetData.addEventListener('click', async () => {
   showToast('数据已刷新');
   loadSummary();
+});
+
+// ============================================================
+// PWA 渐进式离线注册、安装引导与快捷行为适配
+// ============================================================
+
+// 1. 注册 Service Worker (离线与性能加速)
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js')
+      .then((reg) => {
+        console.log('[PWA] Service Worker 注册成功:', reg.scope);
+      })
+      .catch((err) => {
+        console.warn('[PWA] Service Worker 注册失败:', err);
+      });
+  });
+}
+
+// 2. 检测运行模式 (判断是否已在全屏独立运行 standalone 模式)
+const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+
+// 3. 浏览器添加至主屏幕事件 (Android Chrome / Edge / Desktop PWA)
+window.addEventListener('beforeinstallprompt', (e) => {
+  // 阻止默认自动弹窗，控制展示自研引导浮层
+  e.preventDefault();
+  deferredPrompt = e;
+
+  // 若尚未在独立窗口运行且用户未永久关闭引导，则呈现提示浮层
+  if (!isStandalone && !sessionStorage.getItem('pwa_dismissed')) {
+    if (pwaInstallBanner) {
+      pwaInstallBanner.classList.remove('hidden');
+    }
+  }
+});
+
+// 4. 点击安装引导按钮
+if (btnPwaInstall) {
+  btnPwaInstall.addEventListener('click', async () => {
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      const choiceResult = await deferredPrompt.userChoice;
+      if (choiceResult.outcome === 'accepted') {
+        showToast('感谢安装！已添加至桌面');
+      }
+      deferredPrompt = null;
+      if (pwaInstallBanner) pwaInstallBanner.classList.add('hidden');
+    } else {
+      // 若当前环境为 iOS Safari，则弹出专属添加图解
+      const isIos = /iphone|ipad|ipod/i.test(navigator.userAgent);
+      if (isIos && iosGuideModal) {
+        if (pwaInstallBanner) pwaInstallBanner.classList.add('hidden');
+        iosGuideModal.classList.remove('hidden');
+      } else {
+        showToast('请使用浏览器“添加到主屏幕”功能');
+      }
+    }
+  });
+}
+
+// 关闭/忽略引导
+if (btnPwaDismiss) {
+  btnPwaDismiss.addEventListener('click', () => {
+    if (pwaInstallBanner) pwaInstallBanner.classList.add('hidden');
+    sessionStorage.setItem('pwa_dismissed', '1');
+  });
+}
+
+// iOS Safari 引导弹窗关闭
+if (btnCloseIosGuide) {
+  btnCloseIosGuide.addEventListener('click', () => {
+    if (iosGuideModal) iosGuideModal.classList.add('hidden');
+  });
+}
+
+if (btnUnderstoodIos) {
+  btnUnderstoodIos.addEventListener('click', () => {
+    if (iosGuideModal) iosGuideModal.classList.add('hidden');
+  });
+}
+
+// iOS Safari 检测引导展示（当在普通浏览器中首次访问时）
+window.addEventListener('load', () => {
+  const isIos = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  if (isIos && !isStandalone && !sessionStorage.getItem('pwa_dismissed')) {
+    if (pwaInstallBanner) {
+      const descEl = document.getElementById('pwa-app-desc');
+      if (descEl) descEl.textContent = '点此查看 iPhone Safari 添加到桌面指引';
+      pwaInstallBanner.classList.remove('hidden');
+    }
+  }
+
+  // 支持快捷方式直接开启拍照 ?action=camera
+  const urlParams = new URLSearchParams(window.location.search);
+  if (urlParams.get('action') === 'camera') {
+    setTimeout(() => {
+      currentSelectedMealType = 'lunch';
+      openCamera();
+    }, 300);
+  }
 });
 
 // 首次启动初始化加载
