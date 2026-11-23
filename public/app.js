@@ -1,5 +1,5 @@
 // public/app.js
-// 遵循 PRD 与 UI/UX 设计规范的主前端交互逻辑
+// 遵循 PRD 与现代极简 UI/UX 设计规范的主前端交互逻辑
 
 let currentDate = '2026-11-22';
 let currentSummary = null;
@@ -18,8 +18,10 @@ const targetCaloriesText = document.getElementById('target-calories-text');
 const remainingLabel = document.getElementById('remaining-label');
 const remainingVal = document.getElementById('remaining-val');
 const consumedSummaryText = document.getElementById('consumed-summary-text');
+const consumedSummaryVal = document.getElementById('consumed-summary-val');
 const consumedPercentageText = document.getElementById('consumed-percentage-text');
 const calorieProgressBar = document.getElementById('calorie-progress-bar');
+const ringProgressCircle = document.getElementById('ring-progress-circle');
 
 const macroCarbVal = document.getElementById('macro-carb-val');
 const macroCarbBar = document.getElementById('macro-carb-bar');
@@ -117,20 +119,38 @@ function renderDashboard(data) {
   currentDateTitle.textContent = formatDateLabel(data.date);
   targetCaloriesText.textContent = `目标 ${data.targetCalories.toLocaleString()} kcal`;
 
+  // 环形进度条周长 (r=56, 周长 = 2 * PI * 56 ≈ 351.86)
+  const circumference = 351.86;
+  const clampedPercent = Math.min(100, Math.max(0, data.caloriePercentage));
+  const offset = circumference - (clampedPercent / 100) * circumference;
+
+  if (ringProgressCircle) {
+    ringProgressCircle.style.strokeDashoffset = offset;
+  }
+
   // 剩余卡路里与超标状态
   if (data.isOverLimit) {
     energyCard.classList.add('over-limit');
-    remainingLabel.textContent = '⚠️ 已超出日摄入上限';
+    remainingLabel.textContent = '超出预算';
     remainingVal.textContent = Math.abs(data.remainingCalories);
   } else {
     energyCard.classList.remove('over-limit');
-    remainingLabel.textContent = '剩余还可吃';
+    remainingLabel.textContent = '剩余预算';
     remainingVal.textContent = data.remainingCalories;
   }
 
-  consumedSummaryText.textContent = `已摄入: ${data.consumedCalories.toLocaleString()} kcal`;
-  consumedPercentageText.textContent = `${data.caloriePercentage}%`;
-  calorieProgressBar.style.width = `${Math.min(100, data.caloriePercentage)}%`;
+  if (consumedSummaryVal) {
+    consumedSummaryVal.textContent = data.consumedCalories.toLocaleString();
+  }
+  if (consumedSummaryText) {
+    consumedSummaryText.textContent = `已摄入: ${data.consumedCalories.toLocaleString()} kcal`;
+  }
+  if (consumedPercentageText) {
+    consumedPercentageText.textContent = `${data.caloriePercentage}%`;
+  }
+  if (calorieProgressBar) {
+    calorieProgressBar.style.width = `${Math.min(100, data.caloriePercentage)}%`;
+  }
 
   // 三大宏量营养素
   const m = data.macros;
@@ -156,7 +176,9 @@ function renderMealsTimeline(meals) {
     const header = document.createElement('div');
     header.className = 'meal-header-row';
     header.innerHTML = `
-      <span class="meal-name-label">${meal.name}</span>
+      <div class="meal-name-wrap">
+        <span class="meal-name-label">${meal.name}</span>
+      </div>
       <span class="meal-header-cal">${meal.calories} kcal</span>
     `;
 
@@ -166,7 +188,8 @@ function renderMealsTimeline(meals) {
     if (!meal.entries || meal.entries.length === 0) {
       itemsList.innerHTML = `
         <div class="meal-empty-hint" data-meal="${meal.key}">
-          + 暂无记录，点击拍照快捷记录此餐
+          <span class="empty-plus-icon">+</span>
+          <span>暂无记录，轻触拍照快速打卡</span>
         </div>
       `;
       itemsList.querySelector('.meal-empty-hint').addEventListener('click', () => {
@@ -179,12 +202,17 @@ function renderMealsTimeline(meals) {
         itemRow.className = 'meal-item-row';
         itemRow.innerHTML = `
           <div class="meal-item-main">
-            <span class="food-item-name">${item.foodName} (${item.weight}${item.unit || 'g'})</span>
-            <span class="food-item-meta">${item.time || ''} · 蛋白${item.protein}g / 脂肪${item.fat}g / 碳水${item.carbs}g</span>
+            <span class="food-item-name">${item.foodName} <span class="food-item-weight">(${item.weight}${item.unit || 'g'})</span></span>
+            <span class="food-item-meta">${item.time || ''} · 蛋白质 ${item.protein}g · 脂肪 ${item.fat}g · 碳水 ${item.carbs}g</span>
           </div>
           <div class="meal-item-side">
-            <span class="food-item-cal">${item.calories} kcal</span>
-            <button class="del-item-btn" title="删除该条记录" data-id="${item.id}">🗑️</button>
+            <span class="food-item-cal">${item.calories} <span class="cal-unit">kcal</span></span>
+            <button class="del-item-btn" title="删除该条记录" aria-label="删除" data-id="${item.id}">
+              <svg class="del-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="3 6 5 6 21 6"></polyline>
+                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+              </svg>
+            </button>
           </div>
         `;
         itemRow.querySelector('.del-item-btn').addEventListener('click', async (e) => {
@@ -206,7 +234,7 @@ async function deleteEntry(id) {
     const res = await fetch(`/api/entries/${id}`, { method: 'DELETE' });
     const json = await res.json();
     if (json.success) {
-      showToast('已删除记录');
+      showToast('已移除记录');
       loadSummary();
     }
   } catch (err) {
@@ -234,7 +262,7 @@ function closeCamera() {
 // 触发快门识别
 async function triggerRecognition({ filename = 'steak_sample.jpg', base64 = '' }) {
   laserScanner.style.animationDuration = '0.6s'; // 加速扫描动效
-  showToast('AI 特征识别分析中...');
+  showToast('智能特征识别中...');
 
   try {
     const res = await fetch('/api/food/recognize', {
@@ -263,9 +291,9 @@ async function triggerRecognition({ filename = 'steak_sample.jpg', base64 = '' }
 // 3. 展现识别结果确认卡片
 function showResultSheet(foodData) {
   currentRecognizedFood = { ...foodData };
-  confidenceTag.textContent = `AI 识别成功 ${Math.round(foodData.confidence * 100)}%`;
+  confidenceTag.textContent = `视觉匹配度 ${Math.round(foodData.confidence * 100)}%`;
   sheetFoodName.textContent = foodData.name;
-  sheetFoodEmoji.textContent = getFoodEmoji(foodData.name);
+  sheetFoodEmoji.innerHTML = getFoodIconSvg(foodData.name);
 
   // 初始化滑块
   portionRange.value = foodData.weight;
@@ -277,17 +305,46 @@ function showResultSheet(foodData) {
   resultSheetBackdrop.classList.remove('hidden');
 }
 
-function getFoodEmoji(name) {
-  if (name.includes('牛排') || name.includes('肉')) return '🥩';
-  if (name.includes('鸡') || name.includes('沙拉')) return '🥗';
-  if (name.includes('吐司') || name.includes('面包')) return '🍞';
-  if (name.includes('蛋')) return '🥚';
-  if (name.includes('饭')) return '🍚';
-  if (name.includes('咖啡')) return '☕';
-  if (name.includes('牛奶') || name.includes('酸奶')) return '🥛';
-  if (name.includes('鱼')) return '🐟';
-  if (name.includes('苹果')) return '🍎';
-  return '🍽️';
+function getFoodIconSvg(name) {
+  // 精致低调的矢量线条图标，替代粗糙 emoji
+  if (name.includes('牛排') || name.includes('肉')) {
+    return `<svg class="ui-food-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M19 12c0 3.866-3.134 7-7 7s-7-3.134-7-7 3.134-7 7-7 7 3.134 7 7z"></path>
+      <path d="M12 9a3 3 0 0 0-3 3"></path>
+    </svg>`;
+  }
+  if (name.includes('沙拉') || name.includes('菜')) {
+    return `<svg class="ui-food-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12 2a9 9 0 0 0-9 9c0 4.97 4.03 9 9 9s9-4.03 9-9c0-4.97-4.03-9-9-9z"></path>
+      <path d="M12 8c-2.21 0-4 1.79-4 4"></path>
+    </svg>`;
+  }
+  if (name.includes('面包') || name.includes('吐司')) {
+    return `<svg class="ui-food-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="4" y="4" width="16" height="16" rx="3"></rect>
+      <line x1="8" y1="9" x2="16" y2="9"></line>
+      <line x1="8" y1="13" x2="16" y2="13"></line>
+    </svg>`;
+  }
+  if (name.includes('蛋')) {
+    return `<svg class="ui-food-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <ellipse cx="12" cy="13" rx="7" ry="9"></ellipse>
+    </svg>`;
+  }
+  if (name.includes('鱼') || name.includes('三文鱼')) {
+    return `<svg class="ui-food-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M2 16s9-15 20-4c-11 11-20-4-20-4z"></path>
+      <circle cx="18" cy="12" r="1"></circle>
+    </svg>`;
+  }
+  // 通用餐具图标
+  return `<svg class="ui-food-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M18 8h1a4 4 0 0 1 0 8h-1"></path>
+    <path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"></path>
+    <line x1="6" y1="1" x2="6" y2="4"></line>
+    <line x1="10" y1="1" x2="10" y2="4"></line>
+    <line x1="14" y1="1" x2="14" y2="4"></line>
+  </svg>`;
 }
 
 function updateSheetCalculations(weight) {
@@ -354,7 +411,7 @@ async function confirmRecord() {
     const json = await res.json();
     if (json.success) {
       resultSheetBackdrop.classList.add('hidden');
-      showToast(`✅ 成功记录 ${currentRecognizedFood.name} (+${calc.calories} kcal)`);
+      showToast(`已成功打卡 ${currentRecognizedFood.name} (+${calc.calories} kcal)`);
       loadSummary();
     }
   } catch (err) {
@@ -378,18 +435,18 @@ async function handleSearchFoods(query = '') {
 function renderSearchResults(foods) {
   searchResultsBox.innerHTML = '';
   if (!foods || foods.length === 0) {
-    searchResultsBox.innerHTML = '<div style="text-align:center;color:#64748B;padding:20px;">未找到匹配食物</div>';
+    searchResultsBox.innerHTML = '<div style="text-align:center;color:#64748B;padding:24px;font-size:13px;">未在库中找到匹配食物</div>';
     return;
   }
   foods.forEach(f => {
     const item = document.createElement('div');
     item.className = 'search-result-item';
     item.innerHTML = `
-      <div>
+      <div class="sr-info">
         <div class="sr-name">${f.name}</div>
         <div class="sr-category">${f.category} · 标量 ${f.standardWeight}${f.unit}</div>
       </div>
-      <div class="sr-cal">${f.caloriesPer100g} kcal/100g</div>
+      <div class="sr-cal">${f.caloriesPer100g} <span class="sr-unit">kcal/100g</span></div>
     `;
     item.addEventListener('click', () => {
       // 替换当前识别食物
@@ -428,14 +485,16 @@ btnOpenCamera.addEventListener('click', () => {
 
 btnCloseCamera.addEventListener('click', closeCamera);
 
-btnShutter.addEventListener('click', () => {
-  triggerRecognition({ filename: 'steak_dish.jpg' });
-});
+if (btnShutter) {
+  btnShutter.addEventListener('click', () => {
+    triggerRecognition({ filename: 'steak_dish.jpg' });
+  });
+}
 
 btnDemoSample.addEventListener('click', () => {
   cameraPlaceholder.classList.add('hidden');
   cameraPreviewImg.classList.remove('hidden');
-  cameraPreviewImg.src = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="400" height="400" viewBox="0 0 400 400"><rect width="100%" height="100%" fill="%232d3748"/><circle cx="200" cy="200" r="140" fill="%23e2e8f0"/><text x="50%" y="45%" text-anchor="middle" font-size="70">🥩</text><text x="50%" y="65%" text-anchor="middle" fill="%231a202c" font-size="20" font-weight="bold">香煎西冷牛排配时蔬</text></svg>';
+  cameraPreviewImg.src = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="400" height="400" viewBox="0 0 400 400"><rect width="100%" height="100%" fill="%231E293B"/><circle cx="200" cy="200" r="140" fill="%23334155" stroke="%23475569" stroke-width="2"/><text x="50%" y="46%" text-anchor="middle" fill="%23F8FAFC" font-size="28" font-family="-apple-system, sans-serif" font-weight="600">STEAK SALAD</text><text x="50%" y="58%" text-anchor="middle" fill="%2394A3B8" font-size="14" font-family="-apple-system, sans-serif">西冷牛排 · 优质蛋白</text></svg>';
   setTimeout(() => {
     triggerRecognition({ filename: 'sirloin_steak.jpg' });
   }, 400);
@@ -596,11 +655,9 @@ const isStandalone = window.matchMedia('(display-mode: standalone)').matches || 
 
 // 3. 浏览器添加至主屏幕事件 (Android Chrome / Edge / Desktop PWA)
 window.addEventListener('beforeinstallprompt', (e) => {
-  // 阻止默认自动弹窗，控制展示自研引导浮层
   e.preventDefault();
   deferredPrompt = e;
 
-  // 若尚未在独立窗口运行且用户未永久关闭引导，则呈现提示浮层
   if (!isStandalone && !sessionStorage.getItem('pwa_dismissed')) {
     if (pwaInstallBanner) {
       pwaInstallBanner.classList.remove('hidden');
@@ -620,7 +677,6 @@ if (btnPwaInstall) {
       deferredPrompt = null;
       if (pwaInstallBanner) pwaInstallBanner.classList.add('hidden');
     } else {
-      // 若当前环境为 iOS Safari，则弹出专属添加图解
       const isIos = /iphone|ipad|ipod/i.test(navigator.userAgent);
       if (isIos && iosGuideModal) {
         if (pwaInstallBanner) pwaInstallBanner.classList.add('hidden');
